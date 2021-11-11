@@ -1,6 +1,10 @@
 package qna.domain;
 
+import qna.CannotDeleteException;
+
 import javax.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 @Entity
@@ -18,6 +22,9 @@ public class Question extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "WRITER_ID", foreignKey = @ForeignKey(name = "fk_question_writer"))
     private User writer;
+
+    @OneToMany(mappedBy = "question")
+    private List<Answer> answers = new ArrayList<>();
 
     private boolean deleted = false;
 
@@ -44,6 +51,7 @@ public class Question extends BaseEntity {
     }
 
     public void addAnswer(Answer answer) {
+        this.answers.add(answer);
         answer.toQuestion(this);
     }
 
@@ -112,6 +120,19 @@ public class Question extends BaseEntity {
     @Override
     public int hashCode() {
         return Objects.hash(id, title, contents, writer, deleted);
+    }
+
+    public boolean hasAnswers() {
+        return this.answers.size() > 0;
+    }
+
+    public boolean hasOwnAnswers() {
+        return this.answers.stream().allMatch(answer -> answer.getWriter() == this.writer);
+    }
+
+    public void delete(User loginUser) throws CannotDeleteException {
+        if(!isOwner(loginUser)) throw new CannotDeleteException("질문을 삭제할 권한이 없습니다.");
+        if(!hasOwnAnswers()) throw new CannotDeleteException("다른 사람이 쓴 답변이 있어 삭제할 수 없습니다.");
     }
 }
 
